@@ -1,11 +1,16 @@
 # Start from a specific, multi-arch Python image on the 'trixie' base
 FROM python:3.14-slim-trixie
 
-# Install TeX Live (full scheme) and 'unzip' for the upload feature.
-# This is a large installation and will take time.
+# avoid interactive prompts during package install
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install TeX Live (full scheme), unzip, git and SSH client
 RUN apt-get update && apt-get install -y \
     texlive-full \
     unzip \
+    git \
+    openssh-client \
+    ca-certificates \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 

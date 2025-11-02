@@ -1,217 +1,317 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenTex Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide-dev@latest"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        /* AMOLED Dark Theme */
-        body { background-color: #000; color: #e0e0e0; }
-        .bg-card { background-color: #111; }
-        .border-divider { border-color: #333; }
-        .text-header { color: #f5f5f5; }
-        .text-body { color: #e0e0e0; }
-        .text-muted { color: #999; }
-        .hover\:bg-hover:hover { background-color: #222; }
-        .shadow-card { box-shadow: 0 4px 6px -1px rgba(255, 255, 255, 0.05), 0 2px 4px -1px rgba(255, 255, 255, 0.03); }
-        .backdrop-blur-sm {
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OpenTex Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide-dev@latest"></script>
+  <style>
+    body { background:#000; color:#e0e0e0 }
+    .bg-card { background:#111 }
+    .border-divider { border-color:#333 }
+    .hover\:bg-hover:hover { background:#222 }
+    .hidden { display:none; }
+  </style>
 </head>
-<body class="min-h-screen">
-
-    <!-- Header -->
-    <header class="bg-card shadow-card p-4 flex justify-between items-center z-10 border-b border-divider">
-        <div class="flex items-center gap-3">
-            <i data-lucide="book-open" class="text-blue-500 w-6 h-6"></i>
-            <h1 class="text-2xl font-bold text-header">OpenTex Dashboard</h1>
-        </div>
-        <div class="flex items-center gap-4">
-            <button id="upload-project-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg shadow flex items-center justify-center gap-2 transition duration-200">
-                <i data-lucide="upload" class="w-4 h-4"></i>
-                Upload Project
-            </button>
-            <button id="new-project-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg shadow flex items-center justify-center gap-2 transition duration-200">
-                <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                New Project
-            </button>
-        </div>
+<body class="min-h-screen p-6">
+  <div class="max-w-6xl mx-auto">
+    <header class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold">OpenTex — Projects</h1>
+      <div class="flex gap-2">
+        <input id="new-project-name" placeholder="New project name" class="px-3 py-2 rounded bg-card border border-divider" />
+        <button id="create-project-btn" class="px-4 py-2 bg-blue-600 rounded">Create</button>
+        <button id="method-test-btn" class="px-4 py-2 bg-gray-700 rounded">Method Test</button>
+      </div>
     </header>
 
-    <!-- Project Grid -->
-    <main class="p-8">
-        <h2 class="text-3xl font-semibold text-header mb-6">Your Projects</h2>
-        <div id="projects-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            <!-- Project list will be populated here -->
-            <div class="text-center text-muted p-4 col-span-full">Loading projects...</div>
+    <section class="grid grid-cols-12 gap-6">
+      <div class="col-span-12 md:col-span-7 lg:col-span-8 bg-card p-4 rounded border border-divider">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg">Projects</h2>
+          <div class="text-sm text-muted">Select a project to open editor</div>
         </div>
-    </main>
+        <div id="projects-list" class="space-y-2">
+          Loading projects...
+        </div>
+      </div>
 
-    <!-- New Project Modal -->
-    <div id="modal-backdrop" class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-20 hidden">
-        <div id="modal" class="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border border-divider">
-            <h2 class="text-2xl font-bold text-header mb-4">Create New Project</h2>
-            <p class="text-muted mb-4">Enter a name for your new project. Spaces will be replaced with underscores.</p>
-            <input type="text" id="new-project-name" class="w-full p-2 border rounded-lg bg-black border-divider" placeholder="e.g., My Thesis Report">
-            <div class="flex justify-end gap-3 mt-6">
-                <button id="modal-cancel-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition">Cancel</button>
-                <button id="modal-create-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition">Create</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Upload Modal -->
-    <div id="upload-modal-backdrop" class="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-20 hidden">
-        <form id="upload-form" class="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border border-divider">
-            <h2 class="text-2xl font-bold text-header mb-4">Upload Project</h2>
-            <p class="text-muted mb-4">Select a `.zip` file containing your project. The project will be named after the zip file.</p>
-            <input type="file" id="project-zip-input" class="w-full p-2 border rounded-lg bg-black border-divider file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700" accept=".zip">
-            <div id="upload-status" class="text-sm mt-2"></div>
-            <div class="flex justify-end gap-3 mt-6">
-                <button type="button" id="upload-modal-cancel-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition">Cancel</button>
-                <button type="submit" id="upload-modal-submit-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition">Upload</button>
-            </div>
+      <aside class="col-span-12 md:col-span-5 lg:col-span-4 bg-card p-4 rounded border border-divider">
+        <h2 class="text-lg mb-2">Git Integration</h2>
+        <div id="git-status" class="mb-3 text-sm text-muted">Loading git config...</div>
+
+        <form id="git-config-form" class="space-y-2" enctype="multipart/form-data">
+          <label class="block text-sm">
+            Git Host (e.g., github.com)
+            <input name="host" id="git-host" class="w-full mt-1 px-3 py-2 rounded bg-black border border-divider" />
+          </label>
+          <label class="block text-sm">
+            Git Username (e.g., your-user)
+            <input name="username" id="git-username" class="w-full mt-1 px-3 py-2 rounded bg-black border border-divider" />
+          </label>
+          <label class="block text-sm">
+            Private SSH Key (id_rsa) <span class="text-xs text-muted">required</span>
+            <input type="file" name="private_key" id="private-key" accept=".pem,.key" class="w-full mt-1" />
+          </label>
+          <label class="block text-sm">
+            Public SSH Key (id_rsa.pub) <span class="text-xs text-muted">(optional)</span>
+            <input type="file" name="public_key" id="public-key" accept=".pub" class="w-full mt-1" />
+          </label>
+          <div class="flex gap-2 pt-2">
+            <button type="submit" class="px-4 py-2 bg-green-600 rounded">Save Git Config</button>
+            <button id="test-push-sample" type="button" class="px-4 py-2 bg-slate-700 rounded">Test push (first project)</button>
+          </div>
         </form>
-    </div>
+        <div id="git-output" class="mt-3 p-2 bg-black rounded text-xs whitespace-pre-wrap hidden"></div>
+      </aside>
+    </section>
+  </div>
 
-    <script>
-        // --- DOM Elements ---
-        const projectsListEl = document.getElementById('projects-list');
-        const newProjectBtn = document.getElementById('new-project-btn');
-        const modalBackdrop = document.getElementById('modal-backdrop');
-        const modalCreateBtn = document.getElementById('modal-create-btn');
-        const modalCancelBtn = document.getElementById('modal-cancel-btn');
-        const newProjectNameInput = document.getElementById('new-project-name');
-        
-        const uploadProjectBtn = document.getElementById('upload-project-btn');
-        const uploadModalBackdrop = document.getElementById('upload-modal-backdrop');
-        const uploadModalCancelBtn = document.getElementById('upload-modal-cancel-btn');
-        const uploadForm = document.getElementById('upload-form');
-        const uploadStatus = document.getElementById('upload-status');
-        const uploadInput = document.getElementById('project-zip-input');
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const projectsList = document.getElementById('projects-list');
+    const gitStatus = document.getElementById('git-status');
+    const gitForm = document.getElementById('git-config-form');
+    const gitOutput = document.getElementById('git-output');
+    const createBtn = document.getElementById('create-project-btn');
+    const newProjectNameInput = document.getElementById('new-project-name');
+    const testPushSample = document.getElementById('test-push-sample');
+    const methodTestBtn = document.getElementById('method-test-btn');
 
-        // --- New Project Modal ---
-        function showModal(show = true) {
-            modalBackdrop.classList.toggle('hidden', !show);
-            if (show) newProjectNameInput.focus();
-            else newProjectNameInput.value = '';
+    if (!projectsList || !gitStatus || !gitForm || !gitOutput || !createBtn || !newProjectNameInput || !testPushSample || !methodTestBtn) {
+      console.error('Dashboard: missing DOM elements.');
+      return;
+    }
+
+    async function parseResponseSafe(resp) {
+      const ctype = resp.headers.get('content-type') || '';
+      try {
+        if (ctype.includes('application/json')) return await resp.json();
+        const text = await resp.text();
+        try { return JSON.parse(text); } catch(e) { return { nonJson: true, text }; }
+      } catch (e) {
+        return { nonJson: true, text: `Failed to read response: ${e.message}` };
+      }
+    }
+
+    function showGitOutput(text) {
+      gitOutput.textContent = text;
+      gitOutput.classList.remove('hidden');
+    }
+
+    // Try POST delete first (safe behind proxies). If 404/405 or fails, try DELETE fallback.
+    async function tryDeleteProject(name) {
+      // 1) Try POST to explicit delete endpoint
+      let resp = await fetch(`/api/projects/${encodeURIComponent(name)}/delete`, { method: 'POST' });
+      if (resp.status >= 200 && resp.status < 300) return resp;
+      // 2) Fallback to DELETE on canonical endpoint
+      resp = await fetch(`/api/projects/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      return resp;
+    }
+
+    async function loadProjects() {
+      projectsList.innerHTML = 'Loading...';
+      try {
+        const res = await fetch('/api/projects');
+        const projects = await res.json().catch(() => []);
+        projectsList.innerHTML = '';
+        if (!projects || projects.length === 0) {
+          projectsList.innerHTML = '<div class="text-muted p-3">No projects found.</div>';
+          return;
         }
-        newProjectBtn.addEventListener('click', () => showModal(true));
-        modalCancelBtn.addEventListener('click', () => showModal(false));
-        modalCreateBtn.addEventListener('click', async () => {
-            const projectName = newProjectNameInput.value;
-            if (!projectName) return;
-            
+        for (const p of projects) {
+          const card = document.createElement('div');
+          card.className = 'p-3 bg-black rounded border border-divider flex items-center justify-between';
+          const left = document.createElement('div');
+          left.innerHTML = `<div class="font-medium">${p}</div><div class="text-xs text-muted">click Open to edit</div>`;
+          const actions = document.createElement('div');
+          actions.className = 'flex gap-2';
+
+          const openBtn = document.createElement('button');
+          openBtn.className = 'px-3 py-1 bg-slate-700 rounded text-sm';
+          openBtn.textContent = 'Open';
+          openBtn.addEventListener('click', () => {
+            window.location.href = `/editor?project=${encodeURIComponent(p)}`;
+          });
+
+          const pushBtn = document.createElement('button');
+          pushBtn.className = 'px-3 py-1 bg-emerald-600 rounded text-sm';
+          pushBtn.textContent = 'Push';
+          pushBtn.addEventListener('click', async () => {
+            if (!confirm(`Push project '${p}' to remote repo named '${p}-tex'?`)) return;
+            pushBtn.disabled = true;
+            pushBtn.textContent = 'Pushing...';
             try {
-                const response = await fetch('/api/projects', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: projectName })
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    // Success, redirect to editor
-                    window.location.href = `/editor?project=${result.project_name}`;
+              const resp = await fetch(`/api/projects/${encodeURIComponent(p)}/git_push`, { method: 'POST' });
+              const data = await parseResponseSafe(resp);
+              if (data && data.nonJson) {
+                showGitOutput(data.text);
+                alert('Push returned non-JSON response. See output for details.');
+              } else {
+                showGitOutput(JSON.stringify(data, null, 2));
+                if (data.ok) alert('Push succeeded (see output).'); else alert('Push failed — check output for details.');
+              }
+            } catch (err) {
+              showGitOutput(err.message);
+              alert('Network error while pushing.');
+            } finally {
+              pushBtn.disabled = false;
+              pushBtn.textContent = 'Push';
+            }
+          });
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'px-3 py-1 bg-red-600 rounded text-sm';
+          delBtn.textContent = 'Delete';
+          delBtn.addEventListener('click', async () => {
+            if (!confirm(`Delete project '${p}' and all its files? This cannot be undone.`)) return;
+            delBtn.disabled = true;
+            delBtn.textContent = 'Deleting...';
+            try {
+              const resp = await tryDeleteProject(p);
+              const data = await parseResponseSafe(resp);
+              if (resp.status >= 200 && resp.status < 300) {
+                // only remove after server confirms
+                card.remove();
+              } else {
+                if (data && data.nonJson) {
+                  showGitOutput(data.text);
+                  alert('Delete failed — server returned non-JSON. See output for details.');
                 } else {
-                    alert(`Error: ${result.error}`);
+                  alert('Delete failed: ' + (data.error || JSON.stringify(data)));
                 }
-            } catch (e) {
-                alert(`Error: ${e.message}`);
+                delBtn.disabled = false;
+                delBtn.textContent = 'Delete';
+              }
+            } catch (err) {
+              alert('Network error: ' + err.message);
+              delBtn.disabled = false;
+              delBtn.textContent = 'Delete';
             }
-        });
+          });
 
-        // --- Upload Modal ---
-        function showUploadModal(show = true) {
-            uploadModalBackdrop.classList.toggle('hidden', !show);
-            uploadStatus.textContent = '';
-            uploadInput.value = null;
+          actions.appendChild(openBtn);
+          actions.appendChild(pushBtn);
+          actions.appendChild(delBtn);
+
+          card.appendChild(left);
+          card.appendChild(actions);
+          projectsList.appendChild(card);
         }
-        uploadProjectBtn.addEventListener('click', () => showUploadModal(true));
-        uploadModalCancelBtn.addEventListener('click', () => showUploadModal(false));
-        uploadForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const file = uploadInput.files[0];
-            if (!file) {
-                uploadStatus.textContent = 'Please select a file.';
-                uploadStatus.style.color = 'red';
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('project_zip', file);
-            
-            uploadStatus.textContent = 'Uploading...';
-            uploadStatus.style.color = '#e0e0e0';
+      } catch (err) {
+        projectsList.innerHTML = '<div class="text-red-500 p-3">Failed to load projects.</div>';
+      }
+    }
 
-            try {
-                const response = await fetch('/api/upload_zip', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    uploadStatus.textContent = 'Success! Reloading...';
-                    uploadStatus.style.color = 'green';
-                    setTimeout(() => {
-                        showUploadModal(false);
-                        loadProjects();
-                    }, 1000);
-                } else {
-                    uploadStatus.textContent = `Error: ${result.error}`;
-                    uploadStatus.style.color = 'red';
-                }
-            } catch (e) {
-                 uploadStatus.textContent = `Network Error: ${e.message}`;
-                 uploadStatus.style.color = 'red';
-            }
-        });
+    // Method Test button — calls /api/test_method and shows the received method
+    methodTestBtn.addEventListener('click', async () => {
+      try {
+        const resp = await fetch('/api/test_method', { method: 'DELETE' });
+        const data = await resp.json().catch(() => ({ nonJson: true }));
+        showGitOutput(JSON.stringify(data, null, 2));
+        alert('Check the "Method Test" output panel to see which method the server received.');
+      } catch (err) {
+        showGitOutput(err.message);
+        alert('Network error while testing method.');
+      }
+    });
 
-        // --- API Functions ---
-        async function loadProjects() {
-            try {
-                const response = await fetch('/api/projects');
-                const projects = await response.json();
-                projectsListEl.innerHTML = '';
-                
-                if (projects.length === 0) {
-                     projectsListEl.innerHTML = '<div class="text-center text-muted p-4 col-span-full">No projects found. Create one!</div>';
-                }
-
-                projects.sort().forEach(projectName => {
-                    const projectEl = document.createElement('a');
-                    projectEl.href = `/editor?project=${projectName}`;
-                    projectEl.className = 'bg-card border border-divider rounded-lg p-6 shadow-card hover:bg-hover transition duration-200 block';
-                    projectEl.innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <i data-lucide="folder" class="w-8 h-8 text-blue-500"></i>
-                            <h3 class="text-xl font-semibold text-header truncate">${projectName}</h3>
-                        </div>
-                        <p class="text-muted mt-2">Click to open this project in the editor.</p>
-                    `;
-                    projectsListEl.appendChild(projectEl);
-                });
-                
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
-            } catch (e) {
-                projectsListEl.innerHTML = '<div class="text-center text-red-500 p-4 col-span-full">Failed to load projects.</div>';
-            }
+    async function loadGitConfig() {
+      gitStatus.textContent = 'Loading git config...';
+      try {
+        const res = await fetch('/api/git/config');
+        const data = await parseResponseSafe(res);
+        if (data && data.configured) {
+          gitStatus.innerHTML = `<div class="text-sm">Configured for <strong>${data.username}@${data.host}</strong></div>`;
+          document.getElementById('git-host').value = data.host || '';
+          document.getElementById('git-username').value = data.username || '';
+        } else if (data && data.nonJson) {
+          gitStatus.innerHTML = `<div class="text-sm text-red-500">Git config response not JSON. See output.</div>`;
+          showGitOutput(data.text);
+        } else {
+          gitStatus.innerHTML = '<div class="text-sm text-muted">Not configured</div>';
         }
-        
-        // --- Initial Load ---
-        document.addEventListener('DOMContentLoaded', () => {
-            loadProjects();
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
+      } catch (err) {
+        gitStatus.innerHTML = '<div class="text-sm text-red-500">Failed to load git config</div>';
+      }
+    }
+
+    gitForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = new FormData(gitForm);
+      try {
+        const resp = await fetch('/api/git/config', { method: 'POST', body: form });
+        const data = await parseResponseSafe(resp);
+        if (resp.ok) {
+          alert('Git config saved.');
+          loadGitConfig();
+        } else {
+          if (data && data.nonJson) {
+            showGitOutput(data.text);
+            alert('Failed to save git config — server returned non-JSON. See output.');
+          } else {
+            alert('Failed to save git config: ' + (data.error || JSON.stringify(data)));
+          }
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
+    });
+
+    createBtn.addEventListener('click', async () => {
+      const name = newProjectNameInput.value.trim();
+      if (!name) return alert('Enter project name');
+      createBtn.disabled = true;
+      try {
+        const resp = await fetch('/api/projects', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ name })
         });
-    </script>
+        const data = await parseResponseSafe(resp);
+        if (resp.ok) {
+          newProjectNameInput.value = '';
+          loadProjects();
+        } else {
+          if (data && data.nonJson) {
+            showGitOutput(data.text);
+            alert('Create failed — server returned non-JSON. See output.');
+          } else {
+            alert('Create failed: ' + (data.error || JSON.stringify(data)));
+          }
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      } finally {
+        createBtn.disabled = false;
+      }
+    });
+
+    testPushSample.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/projects');
+        const projects = await res.json().catch(() => []);
+        if (!projects.length) return alert('No projects to test push on.');
+        const first = projects[0];
+        if (!confirm(`Attempt push for '${first}'?`)) return;
+        const resp = await fetch(`/api/projects/${encodeURIComponent(first)}/git_push`, { method: 'POST' });
+        const data = await parseResponseSafe(resp);
+        if (data && data.nonJson) {
+          showGitOutput(data.text);
+          alert('Push returned non-JSON response. See output for details.');
+        } else {
+          showGitOutput(JSON.stringify(data, null, 2));
+          if (data.ok) alert('Push succeeded (see output).'); else alert('Push failed — see output.');
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
+    });
+
+    // initial load
+    loadProjects();
+    loadGitConfig();
+  });
+  </script>
 </body>
 </html>
-
