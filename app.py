@@ -46,6 +46,10 @@ def get_pdf_path(project_name, file_name):
     pdf_name = os.path.splitext(os.path.basename(file_path))[0] + '.pdf'
     return os.path.join(os.path.dirname(file_path), pdf_name)
 
+# Ensure the projects directory exists when the app starts
+if not os.path.exists(PROJECTS_DIR):
+    os.makedirs(PROJECTS_DIR)
+
 # --- HTML Page Routes ---
 
 @app.route('/')
@@ -145,16 +149,23 @@ def upload_zip():
             with zipfile.ZipFile(zip_data, 'r') as zip_ref:
                 # Securely extract files one by one
                 for member in zip_ref.infolist():
-                    member_name = sanitize_name(member.filename)
-                    if member_name and not member.is_dir():
-                        target_path = os.path.join(project_path, member_name)
-                        # Ensure the target is still within the project path
-                        if os.path.commonpath([project_path, target_path]) == project_path:
-                             with open(target_path, "wb") as f:
-                                f.write(zip_ref.read(member.name))
-                        else:
-                            # Log potential path traversal but don't stop
-                            print(f"Skipped potentially malicious file: {member.filename}")
+                    # use member.filename (ZipInfo uses .filename)
+                    if member.is_dir():
+                        continue
+                    # take basename to avoid directories inside zip
+                    base_name = os.path.basename(member.filename)
+                    member_name = sanitize_name(base_name)
+                    if not member_name:
+                        # Skip files with invalid names
+                        print(f"Skipped invalid name: {member.filename}")
+                        continue
+                    target_path = os.path.join(project_path, member_name)
+                    # Ensure the target is still within the project path
+                    if os.path.commonpath([project_path, target_path]) != project_path:
+                        print(f"Skipped potentially malicious file: {member.filename}")
+                        continue
+                    with open(target_path, "wb") as f:
+                        f.write(zip_ref.read(member.filename))
             
             return jsonify({"message": f"Project '{project_name}' uploaded.", "project_name": project_name}), 201
         
@@ -205,6 +216,67 @@ def save_file_content(project_name, file_name):
         with open(file_path, 'w') as f:
             f.write(code)
         return jsonify({"message": f"File '{file_name}' saved."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# New endpoint: create file in a project
+@app.route('/api/projects/<project_name>/files', methods=['POST'])
+def create_file(project_name):
+    """
+    Create a new file in the project.
+    Expects JSON: { "name": "filename.tex", "content": "optional initial content" }
+    """
+    project_path = get_project_path(project_name)
+    if not project_path or not os.path.isdir(project_path):
+        return jsonify({"error": "Project not found"}), 404
+
+    data = request.json or {}
+    file_name_raw = data.get('name')
+    if not file_name_raw:
+        return jsonify({"error": "File name is required"}), 400
+
+    file_name = sanitize_name(file_name_raw)
+    if not file_name:
+        return jsonify({"error": "Invalid file name"}), 400
+
+    file_path = os.path.join(project_path, file_name)
+    if os.path.exists(file_path):
+        return jsonify({"error": "File already exists"}), 400
+
+    content = data.get('content', '')
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return jsonify({"message": f"File '{file_name}' created.", "file": file_name}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# New endpoint: delete file in a project
+@app.route('/api/projects/<project_name>/files', methods=['DELETE'])
+def delete_file(project_name):
+    """
+    Delete a file in the project.
+    Query param: ?file=filename.ext
+    """
+    project_path = get_project_path(project_name)
+    if not project_path or not os.path.isdir(project_path):
+        return jsonify({"error": "Project not found"}), 404
+
+    file_name_raw = request.args.get('file')
+    if not file_name_raw:
+        return jsonify({"error": "File query parameter required"}), 400
+
+    file_name = sanitize_name(file_name_raw)
+    if not file_name:
+        return jsonify({"error": "Invalid file name"}), 400
+
+    file_path = os.path.join(project_path, file_name)
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        return jsonify({"error": "File not found"}), 404
+
+    try:
+        os.remove(file_path)
+        return jsonify({"message": f"File '{file_name}' deleted."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -277,11 +349,4 @@ def download_pdf():
         download_name=os.path.basename(pdf_path)
     )
 
-# --- Gunicorn setup ---
-# Ensure the projects directory exists when the app starts
-if not os.path.exists(PROJECTS_DIR):
-    os.makedirs(PROJECTS_DIR)
-
-# Note: The if __name__ == '__main__': block is removed.
-# Gunicorn will be the entry point and will load the 'app' object.
-
+# Note: Gunicorn will be the entry point and will load the 'app' object.

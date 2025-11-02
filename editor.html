@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>OpenTex Editor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide-dev@latest"></script>
+
+    <!-- Ace editor CDN (for syntax highlighting) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.15.2/ace.js" integrity="" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.15.2/ext-language_tools.min.js" integrity="" crossorigin="anonymous"></script>
+
     <style>
         body { font-family: 'Inter', sans-serif; }
         /* AMOLED Dark Theme */
@@ -21,7 +26,7 @@
         .hover\:bg-hover:hover { background-color: #222; }
         .shadow-header { box-shadow: 0 4px 6px -1px rgba(255, 255, 255, 0.05), 0 2px 4px -1px rgba(255, 255, 255, 0.03); }
         .file-active { background-color: #2563eb; color: white; }
-        #editor { background-color: #0c0c0c; color: #e0e0e0; border-color: #333; }
+        #editor { height: 100%; width: 100%; }
         #error-log { background-color: #050505; color: #ff5555; }
     </style>
 </head>
@@ -57,8 +62,16 @@
         
         <!-- Sidebar: Files -->
         <aside class="col-span-12 md:col-span-3 lg:col-span-2 bg-card border-r border-divider overflow-y-auto">
-            <div class="p-4 border-b border-divider">
+            <div class="p-4 border-b border-divider flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-header">Files</h2>
+                <div class="flex gap-2">
+                    <button id="new-file-btn" title="New File" class="p-1 rounded hover:bg-hover text-muted">
+                        <i data-lucide="file-plus" class="w-4 h-4"></i>
+                    </button>
+                    <button id="delete-file-btn" title="Delete File" class="p-1 rounded hover:bg-hover text-muted">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </div>
             <div id="files-list" class="p-2">
                 <!-- File list will be populated here -->
@@ -73,7 +86,8 @@
                 <span id="current-file-name">No file selected</span>
             </div>
             <div class="flex-grow p-1 h-full">
-                <textarea id="editor" class="w-full h-full p-2 resize-none border-none outline-none" style="font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.5;"></textarea>
+                <!-- Ace editor container -->
+                <div id="editor" class="w-full h-full"></div>
             </div>
             <div id="editor-placeholder" class="flex-grow h-full flex items-center justify-center text-muted">
                 Select a file to begin.
@@ -100,7 +114,7 @@
         const compileBtn = document.getElementById('compile-btn');
         const saveBtn = document.getElementById('save-btn');
         const downloadBtn = document.getElementById('download-btn');
-        const editor = document.getElementById('editor');
+        const editorContainer = document.getElementById('editor');
         const editorHeader = document.getElementById('editor-header');
         const editorPlaceholder = document.getElementById('editor-placeholder');
         const currentFileNameEl = document.getElementById('current-file-name');
@@ -108,6 +122,8 @@
         const errorLog = document.getElementById('error-log');
         const filesListEl = document.getElementById('files-list');
         const projectTitle = document.getElementById('project-title');
+        const newFileBtn = document.getElementById('new-file-btn');
+        const deleteFileBtn = document.getElementById('delete-file-btn');
 
         // --- App State ---
         let currentProject = null;
@@ -115,38 +131,53 @@
         let isEditorDirty = false;
         let pdfReady = false;
 
+        // --- Ace Editor Setup ---
+        const aceEditor = ace.edit(editorContainer);
+        aceEditor.setTheme("ace/theme/monokai");
+        // Use LaTeX mode for .tex files; default to text otherwise
+        aceEditor.session.setMode("ace/mode/latex");
+        aceEditor.setOptions({
+            enableBasicAutocompletion: true,
+            enableSnippets: true,
+            enableLiveAutocompletion: true,
+            fontFamily: "Courier New, monospace",
+            fontSize: 14,
+        });
+        // Start hidden until a file is loaded
+        editorContainer.classList.add('hidden');
+
         // --- API Functions ---
         async function loadFiles(projectName) {
             try {
-                const response = await fetch(`/api/projects/${projectName}`);
+                const response = await fetch(`/api/projects/${encodeURIComponent(projectName)}`);
                 const files = await response.json();
                 filesListEl.innerHTML = '';
                 
-                if (files.length === 0) {
+                if (!Array.isArray(files) || files.length === 0) {
                      filesListEl.innerHTML = '<div class="text-center text-muted p-4">No files in project.</div>';
+                } else {
+                    files.forEach(fileName => {
+                        const fileEl = document.createElement('button');
+                        fileEl.className = 'w-full text-left p-2 text-sm rounded hover:bg-hover text-body flex items-center gap-2';
+                        fileEl.dataset.file = fileName;
+                        
+                        let icon = 'file';
+                        if (fileName.endsWith('.tex')) icon = 'file-text';
+                        if (fileName.endsWith('.pdf')) icon = 'file-type';
+                        if (fileName.endsWith('.png') || fileName.endsWith('.jpg')) icon = 'image';
+                        
+                        fileEl.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> ${fileName}`;
+                        fileEl.addEventListener('click', () => loadFile(projectName, fileName));
+                        filesListEl.appendChild(fileEl);
+                    });
                 }
-
-                files.forEach(fileName => {
-                    const fileEl = document.createElement('button');
-                    fileEl.className = 'w-full text-left p-2 text-sm rounded hover:bg-hover text-body flex items-center gap-2';
-                    fileEl.dataset.file = fileName;
-                    
-                    let icon = 'file';
-                    if (fileName.endsWith('.tex')) icon = 'file-text';
-                    if (fileName.endsWith('.pdf')) icon = 'file-type';
-                    if (fileName.endsWith('.png') || fileName.endsWith('.jpg')) icon = 'image';
-                    
-                    fileEl.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> ${fileName}`;
-                    fileEl.addEventListener('click', () => loadFile(projectName, fileName));
-                    filesListEl.appendChild(fileEl);
-                });
                 
                 if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
                 }
                 
                 // Auto-load the first .tex file
-                const firstTexFile = files.find(f => f.endsWith('.tex'));
+                const firstTexFile = files && files.find ? files.find(f => f.endsWith('.tex')) : null;
                 if (firstTexFile) {
                     loadFile(projectName, firstTexFile);
                 }
@@ -157,7 +188,7 @@
         }
 
         async function loadFile(projectName, fileName) {
-            // Can't edit non-text files yet
+            // Only let users edit .tex files (you can change this)
             if (!fileName.endsWith('.tex')) {
                 alert("This editor currently only supports opening .tex files.");
                 return;
@@ -170,11 +201,12 @@
             }
 
             try {
-                const response = await fetch(`/api/projects/${projectName}/${fileName}`);
+                const response = await fetch(`/api/projects/${encodeURIComponent(projectName)}/${encodeURIComponent(fileName)}`);
                 const content = await response.text();
                 
-                editor.value = content;
-                editor.classList.remove('hidden');
+                aceEditor.session.setValue(content);
+                aceEditor.session.setMode("ace/mode/latex");
+                editorContainer.classList.remove('hidden');
                 editorHeader.classList.remove('hidden');
                 editorPlaceholder.classList.add('hidden');
                 
@@ -211,10 +243,10 @@
             if (typeof lucide !== 'undefined') lucide.createIcons();
 
             try {
-                await fetch(`/api/projects/${currentProject}/${currentFile}`, {
+                await fetch(`/api/projects/${encodeURIComponent(currentProject)}/${encodeURIComponent(currentFile)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
-                    body: editor.value
+                    body: aceEditor.session.getValue()
                 });
                 isEditorDirty = false;
             } catch (e) {
@@ -226,7 +258,6 @@
         }
 
         async function handleCompile() {
-<!-- ... existing code ...
             if (!currentProject || !currentFile) return;
 
             if (isEditorDirty) {
@@ -280,7 +311,7 @@
         function handleDownload() {
             if (!pdfReady || !currentProject || !currentFile) return;
             // Create a temporary link to trigger the download
-            const url = `/api/download_pdf?project=${currentProject}&file=${currentFile}`;
+            const url = `/api/download_pdf?project=${encodeURIComponent(currentProject)}&file=${encodeURIComponent(currentFile)}`;
             const a = document.createElement('a');
             a.href = url;
             a.download = currentFile.replace('.tex', '.pdf');
@@ -288,6 +319,53 @@
             a.click();
             document.body.removeChild(a);
         }
+
+        // --- New / Delete file handlers ---
+        newFileBtn.addEventListener('click', async () => {
+            const name = prompt('New file name (e.g., chapter1.tex):');
+            if (!name) return;
+            try {
+                const resp = await fetch(`/api/projects/${encodeURIComponent(currentProject)}/files`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, content: '' })
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    await loadFiles(currentProject);
+                    // auto-open created file
+                    loadFile(currentProject, data.file);
+                } else {
+                    alert('Error creating file: ' + (data.error || 'Unknown'));
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        });
+
+        deleteFileBtn.addEventListener('click', async () => {
+            if (!currentFile) {
+                alert('No file selected.');
+                return;
+            }
+            if (!confirm(`Delete '${currentFile}'? This cannot be undone.`)) return;
+            try {
+                const resp = await fetch(`/api/projects/${encodeURIComponent(currentProject)}/files?file=${encodeURIComponent(currentFile)}`, {
+                    method: 'DELETE'
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    currentFile = null;
+                    editorContainer.classList.add('hidden');
+                    editorPlaceholder.classList.remove('hidden');
+                    await loadFiles(currentProject);
+                } else {
+                    alert('Error deleting file: ' + (data.error || 'Unknown'));
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        });
 
         // --- Keybindings ---
         function handleKeydown(e) {
@@ -304,6 +382,12 @@
             }
         }
 
+        // --- Editor change detection ---
+        aceEditor.session.on('change', () => {
+            isEditorDirty = true;
+            saveBtn.disabled = false;
+        });
+
         // --- Initial Load ---
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -318,7 +402,7 @@
             projectTitle.textContent = projectName;
 
             // Hide editor until file is loaded
-            editor.classList.add('hidden');
+            editorContainer.classList.add('hidden');
             editorHeader.classList.add('hidden');
             editorPlaceholder.classList.remove('hidden');
 
@@ -329,10 +413,6 @@
             }
 
             // Attach listeners
-            editor.addEventListener('input', () => {
-                isEditorDirty = true;
-                saveBtn.disabled = false;
-            });
             saveBtn.addEventListener('click', handleSave);
             compileBtn.addEventListener('click', handleCompile);
             downloadBtn.addEventListener('click', handleDownload);
@@ -341,4 +421,3 @@
     </script>
 </body>
 </html>
-        
