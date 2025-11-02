@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTex Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide-dev@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* AMOLED Dark Theme */
+        body { background-color: #000; color: #e0e0e0; }
+        .bg-card { background-color: #111; }
+        .bg-header { background-color: #0c0c0c; }
+        .bg-editor { background-color: #050505; }
+        .bg-preview { background-color: #000; }
+        .border-divider { border-color: #333; }
+        .text-header { color: #f5f5f5; }
+        .text-body { color: #e0e0e0; }
+        .text-muted { color: #999; }
+        .hover\:bg-hover:hover { background-color: #222; }
+        .shadow-header { box-shadow: 0 4px 6px -1px rgba(255, 255, 255, 0.05), 0 2px 4px -1px rgba(255, 255, 255, 0.03); }
+        .file-active { background-color: #2563eb; color: white; }
+        #editor { background-color: #0c0c0c; color: #e0e0e0; border-color: #333; }
+        #error-log { background-color: #050505; color: #ff5555; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-header shadow-header p-3 flex justify-between items-center z-10 border-b border-divider">
+        <div class="flex items-center gap-3">
+            <a href="/" class="p-2 rounded-lg hover:bg-hover text-muted" title="Back to Dashboard">
+                 <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </a>
+            <i data-lucide="book-open" class="text-blue-500"></i>
+            <h1 id="project-title" class="text-xl font-bold text-header">Loading Project...</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <button id="download-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg shadow flex items-center gap-2 transition duration-200 disabled:opacity-50" disabled>
+                <i data-lucide="download" class="w-4 h-4"></i>
+                Download PDF
+            </button>
+            <button id="save-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg shadow flex items-center gap-2 transition duration-200 disabled:opacity-50">
+                <i data-lucide="save" class="w-4 h-4"></i>
+                Save
+            </button>
+            <button id="compile-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center gap-2 transition duration-200 disabled:opacity-50">
+                <i data-lucide="play" class="w-4 h-4"></i>
+                Compile
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="flex-grow grid grid-cols-12 overflow-hidden" style="height: calc(100vh - 65px);">
+        
+        <!-- Sidebar: Files -->
+        <aside class="col-span-12 md:col-span-3 lg:col-span-2 bg-card border-r border-divider overflow-y-auto">
+            <div class="p-4 border-b border-divider">
+                <h2 class="text-lg font-semibold text-header">Files</h2>
+            </div>
+            <div id="files-list" class="p-2">
+                <!-- File list will be populated here -->
+                <div class="text-center text-muted p-4">Loading files...</div>
+            </div>
+        </aside>
+
+        <!-- Editor Pane -->
+        <main class="col-span-12 md:col-span-5 lg:col-span-5 bg-editor flex flex-col h-full overflow-hidden">
+            <div id="editor-header" class="p-3 border-b border-divider flex items-center gap-2 text-muted">
+                <i data-lucide="file-text" class="w-4 h-4"></i>
+                <span id="current-file-name">No file selected</span>
+            </div>
+            <div class="flex-grow p-1 h-full">
+                <textarea id="editor" class="w-full h-full p-2 resize-none border-none outline-none" style="font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.5;"></textarea>
+            </div>
+            <div id="editor-placeholder" class="flex-grow h-full flex items-center justify-center text-muted">
+                Select a file to begin.
+            </div>
+        </main>
+
+        <!-- Preview Pane -->
+        <section class="col-span-12 md:col-span-4 lg:col-span-5 bg-preview flex flex-col h-full overflow-hidden">
+            <div class="p-3 border-b border-divider bg-card flex items-center gap-2 text-muted">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+                <span>Preview</span>
+            </div>
+            <div id="preview-area" class="flex-grow p-2 h-full">
+                <iframe id="pdf-preview" class="w-full h-full border rounded-lg" style="border-color: #333;" title="PDF Preview"></iframe>
+                <div id="error-log" class="w-full h-full p-4 border rounded-lg text-red-400 font-mono text-xs whitespace-pre-wrap overflow-auto hidden" style="border-color: #500;">
+                    <!-- Error messages will be shown here -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const compileBtn = document.getElementById('compile-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const editor = document.getElementById('editor');
+        const editorHeader = document.getElementById('editor-header');
+        const editorPlaceholder = document.getElementById('editor-placeholder');
+        const currentFileNameEl = document.getElementById('current-file-name');
+        const pdfPreview = document.getElementById('pdf-preview');
+        const errorLog = document.getElementById('error-log');
+        const filesListEl = document.getElementById('files-list');
+        const projectTitle = document.getElementById('project-title');
+
+        // --- App State ---
+        let currentProject = null;
+        let currentFile = null;
+        let isEditorDirty = false;
+        let pdfReady = false;
+
+        // --- API Functions ---
+        async function loadFiles(projectName) {
+            try {
+                const response = await fetch(`/api/projects/${projectName}`);
+                const files = await response.json();
+                filesListEl.innerHTML = '';
+                
+                if (files.length === 0) {
+                     filesListEl.innerHTML = '<div class="text-center text-muted p-4">No files in project.</div>';
+                }
+
+                files.forEach(fileName => {
+                    const fileEl = document.createElement('button');
+                    fileEl.className = 'w-full text-left p-2 text-sm rounded hover:bg-hover text-body flex items-center gap-2';
+                    fileEl.dataset.file = fileName;
+                    
+                    let icon = 'file';
+                    if (fileName.endsWith('.tex')) icon = 'file-text';
+                    if (fileName.endsWith('.pdf')) icon = 'file-type';
+                    if (fileName.endsWith('.png') || fileName.endsWith('.jpg')) icon = 'image';
+                    
+                    fileEl.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> ${fileName}`;
+                    fileEl.addEventListener('click', () => loadFile(projectName, fileName));
+                    filesListEl.appendChild(fileEl);
+                });
+                
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+                
+                // Auto-load the first .tex file
+                const firstTexFile = files.find(f => f.endsWith('.tex'));
+                if (firstTexFile) {
+                    loadFile(projectName, firstTexFile);
+                }
+
+            } catch (e) {
+                filesListEl.innerHTML = '<div class="text-center text-red-500 p-4">Failed to load files.</div>';
+            }
+        }
+
+        async function loadFile(projectName, fileName) {
+            // Can't edit non-text files yet
+            if (!fileName.endsWith('.tex')) {
+                alert("This editor currently only supports opening .tex files.");
+                return;
+            }
+
+            if (isEditorDirty) {
+                if (confirm("You have unsaved changes. Save before switching?")) {
+                    await handleSave();
+                }
+            }
+
+            try {
+                const response = await fetch(`/api/projects/${projectName}/${fileName}`);
+                const content = await response.text();
+                
+                editor.value = content;
+                editor.classList.remove('hidden');
+                editorHeader.classList.remove('hidden');
+                editorPlaceholder.classList.add('hidden');
+                
+                currentProject = projectName;
+                currentFile = fileName;
+                currentFileNameEl.textContent = fileName;
+                
+                // Highlight active file
+                filesListEl.querySelectorAll('button').forEach(btn => {
+                    btn.classList.toggle('file-active', btn.dataset.file === fileName);
+                });
+                
+                isEditorDirty = false;
+                saveBtn.disabled = true;
+                compileBtn.disabled = false;
+                
+                // Clear preview
+                pdfReady = false;
+                downloadBtn.disabled = true;
+                pdfPreview.src = 'about:blank';
+                errorLog.classList.add('hidden');
+                pdfPreview.classList.remove('hidden');
+
+            } catch (e) {
+                alert('Error loading file');
+            }
+        }
+
+        async function handleSave() {
+            if (!currentProject || !currentFile || !isEditorDirty) return;
+            
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Saving...';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            try {
+                await fetch(`/api/projects/${currentProject}/${currentFile}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: editor.value
+                });
+                isEditorDirty = false;
+            } catch (e) {
+                alert('Error saving file');
+            } finally {
+                saveBtn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Save';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        }
+
+        async function handleCompile() {
+<!-- ... existing code ...
+            if (!currentProject || !currentFile) return;
+
+            if (isEditorDirty) {
+                await handleSave();
+            }
+            
+            compileBtn.disabled = true;
+            compileBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Compiling...';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            
+            errorLog.classList.add('hidden');
+            pdfPreview.classList.remove('hidden');
+            pdfPreview.src = 'about:blank';
+            pdfReady = false;
+            downloadBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/compile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project: currentProject,
+                        file: currentFile
+                    })
+                });
+
+                if (response.ok) {
+                    const pdfBlob = await response.blob();
+                    const pdfUrl = URL.createObjectURL(pdfBlob);
+                    pdfPreview.src = pdfUrl;
+                    pdfReady = true;
+                    downloadBtn.disabled = false;
+                } else {
+                    const errorData = await response.json();
+                    pdfPreview.classList.add('hidden');
+                    errorLog.classList.remove('hidden');
+                    errorLog.textContent = errorData.error || 'Unknown compilation error.';
+                }
+            
+            } catch (err) {
+                pdfPreview.classList.add('hidden');
+                errorLog.classList.remove('hidden');
+                errorLog.textContent = `Network error: ${err.message}`;
+            } finally {
+                compileBtn.disabled = false;
+                compileBtn.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> Compile';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        }
+
+        function handleDownload() {
+            if (!pdfReady || !currentProject || !currentFile) return;
+            // Create a temporary link to trigger the download
+            const url = `/api/download_pdf?project=${currentProject}&file=${currentFile}`;
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentFile.replace('.tex', '.pdf');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // --- Keybindings ---
+        function handleKeydown(e) {
+            const isCtrl = e.ctrlKey || e.metaKey; // metaKey for Mac
+
+            if (isCtrl && e.key === 's') {
+                e.preventDefault();
+                handleSave();
+            }
+            
+            if (isCtrl && e.key === 'Enter') {
+                e.preventDefault();
+                handleCompile();
+            }
+        }
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectName = urlParams.get('project');
+
+            if (!projectName) {
+                window.location.href = '/'; // Redirect to dashboard if no project
+                return;
+            }
+
+            currentProject = projectName;
+            projectTitle.textContent = projectName;
+
+            // Hide editor until file is loaded
+            editor.classList.add('hidden');
+            editorHeader.classList.add('hidden');
+            editorPlaceholder.classList.remove('hidden');
+
+            loadFiles(projectName);
+            
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+
+            // Attach listeners
+            editor.addEventListener('input', () => {
+                isEditorDirty = true;
+                saveBtn.disabled = false;
+            });
+            saveBtn.addEventListener('click', handleSave);
+            compileBtn.addEventListener('click', handleCompile);
+            downloadBtn.addEventListener('click', handleDownload);
+            window.addEventListener('keydown', handleKeydown);
+        });
+    </script>
+</body>
+</html>
+        

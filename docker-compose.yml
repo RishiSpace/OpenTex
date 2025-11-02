@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  latex-editor:
+    build: .
+    platform: linux/arm64 # Target ARM for Raspberry Pi
+    ports:
+      # Maps port 2714 on your Pi to port 5000 in the container
+      - "2714:5000"
+    volumes:
+      # Binds the local ./app code into the container for easy dev
+      # For production, you might remove these to use the code
+      # baked into the image. For now, it's good for dev.
+      - ./app.py:/app/app.py
+      - ./dashboard.html:/app/dashboard.html
+      - ./editor.html:/app/editor.html
+      # CRITICAL: This links the './projects' folder on your Pi
+      # to the '/app/projects' folder in the container.
+      # This makes your projects persistent.
+      - ./projects:/app/projects
+    restart: unless-stopped
+    container_name: opentex-editor
+
