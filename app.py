@@ -421,6 +421,95 @@ def api_git_push(project_name):
     result = run_git_commands(ppath, cfg, project_name)
     return jsonify(result)
 
+# ----------------- Rename file in project -----------------
+@app.route('/api/projects/<project_name>/rename', methods=['POST'])
+def rename_file(project_name):
+    ppath = get_project_path(project_name)
+    if not ppath or not os.path.isdir(ppath):
+        return jsonify({'error': 'Project not found'}), 404
+    
+    data = request.get_json()
+    old_name = data.get('old_name')
+    new_name = data.get('new_name')
+    
+    if not old_name or not new_name:
+        return jsonify({'error': 'Missing old_name or new_name'}), 400
+    
+    safe_old = sanitize_name(old_name)
+    safe_new = sanitize_name(new_name)
+    
+    if not safe_old or not safe_new:
+        return jsonify({'error': 'Invalid file names'}), 400
+    
+    old_path = os.path.join(ppath, safe_old)
+    new_path = os.path.join(ppath, safe_new)
+    
+    if not os.path.exists(old_path):
+        return jsonify({'error': 'File not found'}), 404
+    
+    if os.path.exists(new_path):
+        return jsonify({'error': 'Target file already exists'}), 400
+    
+    try:
+        os.rename(old_path, new_path)
+        return jsonify({'success': True, 'old_name': safe_old, 'new_name': safe_new})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ----------------- Upload files to project (with folder support) -----------------
+@app.route('/api/projects/<project_name>/upload_files', methods=['POST'])
+def upload_files_to_project(project_name):
+    ppath = get_project_path(project_name)
+    if not ppath or not os.path.isdir(ppath):
+        return jsonify({'error': 'Project not found'}), 404
+    
+    if 'files' not in request.files:
+        return jsonify({'error': 'No files provided'}), 400
+    
+    files = request.files.getlist('files')
+    paths = request.form.getlist('paths')  # Relative paths for folder structure
+    
+    if not files:
+        return jsonify({'error': 'No files selected'}), 400
+    
+    uploaded_count = 0
+    errors = []
+    
+    for i, file in enumerate(files):
+        if file.filename == '':
+            continue
+        
+        # Use relative path if available (for folders), otherwise just filename
+        if i < len(paths) and paths[i]:
+            relative_path = paths[i]
+            # Create subdirectories as needed
+            target_dir = os.path.dirname(os.path.join(ppath, relative_path))
+            os.makedirs(target_dir, exist_ok=True)
+            target_path = os.path.join(ppath, relative_path)
+        else:
+            safe_name = sanitize_name(file.filename)
+            if not safe_name:
+                errors.append(f'Invalid filename: {file.filename}')
+                continue
+            target_path = os.path.join(ppath, safe_name)
+        
+        # Check if file already exists
+        if os.path.exists(target_path):
+            errors.append(f'File already exists: {os.path.basename(target_path)}')
+            continue
+        
+        try:
+            file.save(target_path)
+            uploaded_count += 1
+        except Exception as e:
+            errors.append(f'Error saving {os.path.basename(target_path)}: {str(e)}')
+    
+    response = {'uploaded': uploaded_count}
+    if errors:
+        response['errors'] = errors
+    
+    return jsonify(response), 200 if uploaded_count > 0 else 400
+
 # ----------------- Error handlers (JSON) -----------------
 @app.errorhandler(405)
 def handle_405(e):
@@ -436,3 +525,29 @@ def handle_500(e):
 if __name__ == '__main__':
     # development server (not used in container typically)
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+def list_folder_recursive(path, rel=""):
+    items = []
+    for ent in sorted(os.scandir(path), key=lambda e: (not e.is_dir(), e.name.lower())):
+        rel_path = os.path.join(rel, ent.name)
+        if ent.is_dir():
+            items.append({
+                "type": "folder",
+                "name": ent.name,
+                "path": rel_path,
+                "children": list_folder_recursive(ent.path, rel_path)
+            })
+        else:
+            items.append({
+                "type": "file",
+                "name": ent.name,
+                "path": rel_path
+            })
+    return items
+
+@app.route('/api/projects/<project_name>', methods=['GET'])
+def project_tree(project_name):
+    ppath = get_project_path(project_name)
+    if not ppath or not os.path.isdir(ppath):
+        return jsonify({'error': 'Project not found'}), 404
+    return jsonify(list_folder_recursive(ppath))

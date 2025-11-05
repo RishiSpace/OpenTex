@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>OpenTex Editor</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide-dev@latest"></script>
 
     <!-- Ace editor CDN (for syntax highlighting) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.15.2/ace.js" integrity="" crossorigin="anonymous"></script>
@@ -28,6 +27,56 @@
         .file-active { background-color: #2563eb; color: white; }
         #editor { height: 100%; width: 100%; }
         #error-log { background-color: #050505; color: #ff5555; }
+        .icon-btn { 
+            padding: 0.5rem; 
+            border-radius: 0.5rem; 
+            color: #e0e0e0; 
+            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .icon-btn:hover { 
+            background-color: #222; 
+        }
+        .icon-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        /* Context Menu Styles */
+        .context-menu {
+            position: fixed;
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            min-width: 160px;
+        }
+        .context-menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #e0e0e0;
+            transition: background-color 0.2s;
+        }
+        .context-menu-item:hover {
+            background-color: #2a2a2a;
+        }
+        .context-menu-item svg {
+            width: 16px;
+            height: 16px;
+        }
+        .context-menu-divider {
+            height: 1px;
+            background-color: #333;
+            margin: 4px 0;
+        }
     </style>
 </head>
 <body class="flex flex-col h-screen overflow-hidden">
@@ -36,22 +85,22 @@
     <header class="bg-header shadow-header p-3 flex justify-between items-center z-10 border-b border-divider">
         <div class="flex items-center gap-3">
             <a href="/" class="p-2 rounded-lg hover:bg-hover text-muted" title="Back to Dashboard">
-                 <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
             </a>
-            <i data-lucide="book-open" class="text-blue-500"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
             <h1 id="project-title" class="text-xl font-bold text-header">Loading Project...</h1>
         </div>
         <div class="flex items-center gap-4">
             <button id="download-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg shadow flex items-center gap-2 transition duration-200 disabled:opacity-50" disabled>
-                <i data-lucide="download" class="w-4 h-4"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                 Download PDF
             </button>
             <button id="save-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg shadow flex items-center gap-2 transition duration-200 disabled:opacity-50">
-                <i data-lucide="save" class="w-4 h-4"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 Save
             </button>
             <button id="compile-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center gap-2 transition duration-200 disabled:opacity-50">
-                <i data-lucide="play" class="w-4 h-4"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 Compile
             </button>
         </div>
@@ -65,11 +114,14 @@
             <div class="p-4 border-b border-divider flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-header">Files</h2>
                 <div class="flex gap-2">
-                    <button id="new-file-btn" title="New File" class="p-1 rounded hover:bg-hover text-muted">
-                        <i data-lucide="file-plus" class="w-4 h-4"></i>
+                    <button id="new-file-btn" title="New File" class="icon-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                     </button>
-                    <button id="delete-file-btn" title="Delete File" class="p-1 rounded hover:bg-hover text-muted">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <button id="upload-file-btn" title="Upload Files/Folders" class="icon-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    </button>
+                    <button id="delete-file-btn" title="Delete File" class="icon-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                     </button>
                 </div>
             </div>
@@ -82,7 +134,7 @@
         <!-- Editor Pane -->
         <main class="col-span-12 md:col-span-5 lg:col-span-5 bg-editor flex flex-col h-full overflow-hidden">
             <div id="editor-header" class="p-3 border-b border-divider flex items-center gap-2 text-muted">
-                <i data-lucide="file-text" class="w-4 h-4"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 <span id="current-file-name">No file selected</span>
             </div>
             <div class="flex-grow p-1 h-full">
@@ -97,7 +149,7 @@
         <!-- Preview Pane -->
         <section class="col-span-12 md:col-span-4 lg:col-span-5 bg-preview flex flex-col h-full overflow-hidden">
             <div class="p-3 border-b border-divider bg-card flex items-center gap-2 text-muted">
-                <i data-lucide="eye" class="w-4 h-4"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                 <span>Preview</span>
             </div>
             <div id="preview-area" class="flex-grow p-2 h-full">
@@ -107,6 +159,27 @@
                 </div>
             </div>
         </section>
+    </div>
+
+    <!-- Hidden file input for uploads -->
+    <input type="file" id="file-upload-input" multiple webkitdirectory directory style="display: none;" />
+    <input type="file" id="file-only-upload-input" multiple style="display: none;" />
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="context-menu" style="display: none;">
+        <div class="context-menu-item" data-action="rename">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            Rename
+        </div>
+        <div class="context-menu-item" data-action="download">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" data-action="delete" style="color: #f87171;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Delete
+        </div>
     </div>
 
     <script>
@@ -123,18 +196,22 @@
         const filesListEl = document.getElementById('files-list');
         const projectTitle = document.getElementById('project-title');
         const newFileBtn = document.getElementById('new-file-btn');
+        const uploadFileBtn = document.getElementById('upload-file-btn');
         const deleteFileBtn = document.getElementById('delete-file-btn');
+        const fileUploadInput = document.getElementById('file-upload-input');
+        const fileOnlyUploadInput = document.getElementById('file-only-upload-input');
+        const contextMenu = document.getElementById('context-menu');
 
         // --- App State ---
         let currentProject = null;
         let currentFile = null;
         let isEditorDirty = false;
         let pdfReady = false;
+        let contextMenuTarget = null;
 
         // --- Ace Editor Setup ---
         const aceEditor = ace.edit(editorContainer);
         aceEditor.setTheme("ace/theme/monokai");
-        // Use LaTeX mode for .tex files; default to text otherwise
         aceEditor.session.setMode("ace/mode/latex");
         aceEditor.setOptions({
             enableBasicAutocompletion: true,
@@ -143,8 +220,101 @@
             fontFamily: "Courier New, monospace",
             fontSize: 14,
         });
-        // Start hidden until a file is loaded
         editorContainer.classList.add('hidden');
+
+        // --- Context Menu Functions ---
+        function showContextMenu(e, fileName) {
+            e.preventDefault();
+            contextMenuTarget = fileName;
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = e.pageX + 'px';
+            contextMenu.style.top = e.pageY + 'px';
+        }
+
+        function hideContextMenu() {
+            contextMenu.style.display = 'none';
+            contextMenuTarget = null;
+        }
+
+        document.addEventListener('click', hideContextMenu);
+
+        contextMenu.addEventListener('click', async (e) => {
+            const item = e.target.closest('.context-menu-item');
+            if (!item || !contextMenuTarget) return;
+
+            const action = item.dataset.action;
+            hideContextMenu();
+
+            switch(action) {
+                case 'rename':
+                    await handleRenameFile(contextMenuTarget);
+                    break;
+                case 'download':
+                    await handleDownloadFile(contextMenuTarget);
+                    break;
+                case 'delete':
+                    await handleDeleteFile(contextMenuTarget);
+                    break;
+            }
+        });
+
+        async function handleRenameFile(oldName) {
+            const newName = prompt(`Rename "${oldName}" to:`, oldName);
+            if (!newName || newName === oldName) return;
+
+            try {
+                const resp = await fetch(`/api/projects/${encodeURIComponent(currentProject)}/rename`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_name: oldName, new_name: newName })
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    if (currentFile === oldName) {
+                        currentFile = newName;
+                        currentFileNameEl.textContent = newName;
+                    }
+                    await loadFiles(currentProject);
+                } else {
+                    alert('Error renaming file: ' + (data.error || 'Unknown'));
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        async function handleDownloadFile(fileName) {
+            const url = `/api/projects/${encodeURIComponent(currentProject)}/${encodeURIComponent(fileName)}`;
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        async function handleDeleteFile(fileName) {
+            if (!confirm(`Delete '${fileName}'? This cannot be undone.`)) return;
+
+            try {
+                const resp = await fetch(`/api/projects/${encodeURIComponent(currentProject)}/files?file=${encodeURIComponent(fileName)}`, {
+                    method: 'DELETE'
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    if (currentFile === fileName) {
+                        currentFile = null;
+                        editorContainer.classList.add('hidden');
+                        editorPlaceholder.classList.remove('hidden');
+                    }
+                    await loadFiles(currentProject);
+                } else {
+                    alert('Error deleting file: ' + (data.error || 'Unknown'));
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
 
         // --- API Functions ---
         async function loadFiles(projectName) {
@@ -161,22 +331,22 @@
                         fileEl.className = 'w-full text-left p-2 text-sm rounded hover:bg-hover text-body flex items-center gap-2';
                         fileEl.dataset.file = fileName;
                         
-                        let icon = 'file';
-                        if (fileName.endsWith('.tex')) icon = 'file-text';
-                        if (fileName.endsWith('.pdf')) icon = 'file-type';
-                        if (fileName.endsWith('.png') || fileName.endsWith('.jpg')) icon = 'image';
+                        let iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+                        if (fileName.endsWith('.tex')) {
+                            iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+                        } else if (fileName.endsWith('.pdf')) {
+                            iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+                        } else if (fileName.match(/\.(png|jpg|jpeg|gif)$/i)) {
+                            iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+                        }
                         
-                        fileEl.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> ${fileName}`;
+                        fileEl.innerHTML = `${iconSvg} ${fileName}`;
                         fileEl.addEventListener('click', () => loadFile(projectName, fileName));
+                        fileEl.addEventListener('contextmenu', (e) => showContextMenu(e, fileName));
                         filesListEl.appendChild(fileEl);
                     });
                 }
                 
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
-                
-                // Auto-load the first .tex file
                 const firstTexFile = files && files.find ? files.find(f => f.endsWith('.tex')) : null;
                 if (firstTexFile) {
                     loadFile(projectName, firstTexFile);
@@ -188,7 +358,6 @@
         }
 
         async function loadFile(projectName, fileName) {
-            // Only let users edit .tex files (you can change this)
             if (!fileName.endsWith('.tex')) {
                 alert("This editor currently only supports opening .tex files.");
                 return;
@@ -214,7 +383,6 @@
                 currentFile = fileName;
                 currentFileNameEl.textContent = fileName;
                 
-                // Highlight active file
                 filesListEl.querySelectorAll('button').forEach(btn => {
                     btn.classList.toggle('file-active', btn.dataset.file === fileName);
                 });
@@ -223,7 +391,6 @@
                 saveBtn.disabled = true;
                 compileBtn.disabled = false;
                 
-                // Clear preview
                 pdfReady = false;
                 downloadBtn.disabled = true;
                 pdfPreview.src = 'about:blank';
@@ -239,8 +406,8 @@
             if (!currentProject || !currentFile || !isEditorDirty) return;
             
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Saving...';
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            const originalHTML = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Saving...';
 
             try {
                 await fetch(`/api/projects/${encodeURIComponent(currentProject)}/${encodeURIComponent(currentFile)}`, {
@@ -252,8 +419,7 @@
             } catch (e) {
                 alert('Error saving file');
             } finally {
-                saveBtn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Save';
-                if (typeof lucide !== 'undefined') lucide.createIcons();
+                saveBtn.innerHTML = originalHTML;
             }
         }
 
@@ -265,8 +431,8 @@
             }
             
             compileBtn.disabled = true;
-            compileBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Compiling...';
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            const originalHTML = compileBtn.innerHTML;
+            compileBtn.innerHTML = '<svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Compiling...';
             
             errorLog.classList.add('hidden');
             pdfPreview.classList.remove('hidden');
@@ -303,14 +469,12 @@
                 errorLog.textContent = `Network error: ${err.message}`;
             } finally {
                 compileBtn.disabled = false;
-                compileBtn.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> Compile';
-                if (typeof lucide !== 'undefined') lucide.createIcons();
+                compileBtn.innerHTML = originalHTML;
             }
         }
 
         function handleDownload() {
             if (!pdfReady || !currentProject || !currentFile) return;
-            // Create a temporary link to trigger the download
             const url = `/api/download_pdf?project=${encodeURIComponent(currentProject)}&file=${encodeURIComponent(currentFile)}`;
             const a = document.createElement('a');
             a.href = url;
@@ -320,7 +484,7 @@
             document.body.removeChild(a);
         }
 
-        // --- New / Delete file handlers ---
+        // --- New / Delete / Upload file handlers ---
         newFileBtn.addEventListener('click', async () => {
             const name = prompt('New file name (e.g., chapter1.tex):');
             if (!name) return;
@@ -333,7 +497,6 @@
                 const data = await resp.json();
                 if (resp.ok) {
                     await loadFiles(currentProject);
-                    // auto-open created file
                     loadFile(currentProject, data.file);
                 } else {
                     alert('Error creating file: ' + (data.error || 'Unknown'));
@@ -343,33 +506,66 @@
             }
         });
 
+        uploadFileBtn.addEventListener('click', () => {
+            const choice = confirm('Click OK to upload FILES, or Cancel to upload a FOLDER');
+            if (choice) {
+                fileOnlyUploadInput.click();
+            } else {
+                fileUploadInput.click();
+            }
+        });
+
+        async function uploadFiles(files) {
+            if (!files || files.length === 0) return;
+
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                // Include relative path for folder structure
+                const file = files[i];
+                formData.append('files', file);
+                if (file.webkitRelativePath) {
+                    formData.append('paths', file.webkitRelativePath);
+                }
+            }
+
+            try {
+                const resp = await fetch(`/api/projects/${encodeURIComponent(currentProject)}/upload_files`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    alert(`Successfully uploaded ${data.uploaded} file(s)`);
+                    await loadFiles(currentProject);
+                } else {
+                    alert('Error uploading files: ' + (data.error || 'Unknown'));
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        fileUploadInput.addEventListener('change', async (e) => {
+            await uploadFiles(e.target.files);
+            fileUploadInput.value = '';
+        });
+
+        fileOnlyUploadInput.addEventListener('change', async (e) => {
+            await uploadFiles(e.target.files);
+            fileOnlyUploadInput.value = '';
+        });
+
         deleteFileBtn.addEventListener('click', async () => {
             if (!currentFile) {
                 alert('No file selected.');
                 return;
             }
-            if (!confirm(`Delete '${currentFile}'? This cannot be undone.`)) return;
-            try {
-                const resp = await fetch(`/api/projects/${encodeURIComponent(currentProject)}/files?file=${encodeURIComponent(currentFile)}`, {
-                    method: 'DELETE'
-                });
-                const data = await resp.json();
-                if (resp.ok) {
-                    currentFile = null;
-                    editorContainer.classList.add('hidden');
-                    editorPlaceholder.classList.remove('hidden');
-                    await loadFiles(currentProject);
-                } else {
-                    alert('Error deleting file: ' + (data.error || 'Unknown'));
-                }
-            } catch (err) {
-                alert('Network error: ' + err.message);
-            }
+            await handleDeleteFile(currentFile);
         });
 
         // --- Keybindings ---
         function handleKeydown(e) {
-            const isCtrl = e.ctrlKey || e.metaKey; // metaKey for Mac
+            const isCtrl = e.ctrlKey || e.metaKey;
 
             if (isCtrl && e.key === 's') {
                 e.preventDefault();
@@ -394,25 +590,19 @@
             const projectName = urlParams.get('project');
 
             if (!projectName) {
-                window.location.href = '/'; // Redirect to dashboard if no project
+                window.location.href = '/';
                 return;
             }
 
             currentProject = projectName;
             projectTitle.textContent = projectName;
 
-            // Hide editor until file is loaded
             editorContainer.classList.add('hidden');
             editorHeader.classList.add('hidden');
             editorPlaceholder.classList.remove('hidden');
 
             loadFiles(projectName);
-            
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
 
-            // Attach listeners
             saveBtn.addEventListener('click', handleSave);
             compileBtn.addEventListener('click', handleCompile);
             downloadBtn.addEventListener('click', handleDownload);
